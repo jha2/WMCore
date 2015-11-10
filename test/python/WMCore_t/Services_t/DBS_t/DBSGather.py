@@ -136,5 +136,3 @@ for call in calls:
 
 with open('DBSMockData.json', 'w') as mockData:
     json.dump(lookup, mockData, indent=1)
-
-
