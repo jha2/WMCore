@@ -27,8 +27,6 @@ class EmulatedUnitTest(unittest.TestCase):
         # self.addCleanup(dbsPatcher.stop)
 
         # For python 2.6 we need to cache this in self (may want to for inherited unit tests anyhow
-        self.url = 'https://cmsweb.cern.ch/dbs/prod/global/DBSReader'
-        self.dbs = MockDbsApi(self.url)
         self.dbsPatcher = mock.patch('dbs.apis.dbsClient.DbsApi', new=MockDbsApi)
         self.inUseDbsApi = self.dbsPatcher.start()
         return
@@ -36,27 +34,6 @@ class EmulatedUnitTest(unittest.TestCase):
     def tearDown(self):
         # Needed in python 2.6, not needed in 2.7 with addCleanup
         self.inUseDbsApi = self.dbsPatcher.stop()
-        return
-
-    def testListDatatiers(self):
-        """
-        listDatatiers returns all datatiers available
-        self.dbs = DBSReader(self.endpoint)
-        results = self.dbs.listDatatiers()
-        self.assertTrue('RAW' in results)
-        self.assertTrue('GEN-SIM-RECO' in results)
-        self.assertTrue('GEN-SIM' in results)
-        self.assertFalse('RAW-ALAN' in results)
-        """
-	#Get from DBS
-        results =  self.dbs.listDataTiers()
-
-	#Create mock instance
-        instance = self.inUseDbsApi
-        instance.listDataTiers = 'RAW'
-
-	#Assert
-        self.assertTrue(instance.listDataTiers in [result['data_tier_name'] for result in results])
         return
 
 
