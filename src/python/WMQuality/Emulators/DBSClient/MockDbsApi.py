@@ -77,4 +77,3 @@ class MockDbsApi(object):
                                (item, args, kwargs, self.url))
 
         return genericLookup
-    
