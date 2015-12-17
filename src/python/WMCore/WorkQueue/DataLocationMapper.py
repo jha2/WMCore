@@ -47,6 +47,14 @@ def timeFloor(number, interval = UPDATE_INTERVAL_COARSENESS):
     from math import floor
     return floor(number / interval) * interval
 
+
+def isDataset(inputData):
+    """Check whether we're handling a block or a dataset"""
+    if '#' in inputData.split('/')[-1]:
+        return False
+    return True
+
+
 class DataLocationMapper():
     """Map data to locations for WorkQueue"""
     def __init__(self, **kwargs):
@@ -113,13 +121,13 @@ class DataLocationMapper():
                 args['update_since'] = timeFloor(self.lastLocationUpdate, self.params['updateIntervalCoarseness'])
             for dataItem in dataItems:
                 try:
-                    if datasetSearch:
+                    if datasetSearch or isDataset(dataItem):
                         response = self.phedex.getReplicaInfoForBlocks(dataset = [dataItem], **args)['phedex']
                     else:
                         response = self.phedex.getReplicaInfoForBlocks(block = [dataItem], **args)['phedex']
                     for block in response['block']:
-                        nodes = [se['node'] for se in block['replica']]
-                        if datasetSearch:
+                        nodes = [replica['node'] for replica in block['replica']]
+                        if datasetSearch or isDataset(dataItem):
                             result[dataItem].update(nodes)
                         else:
                             result[block['name']].update(nodes)
@@ -131,8 +139,12 @@ class DataLocationMapper():
         # convert from PhEDEx name to cms site name
         for name, nodes in result.items():
             psns = set()
+<<<<<<< HEAD
             for x in nodes:
                 psns.update(self.sitedb.PNNtoPSN(x))
+=======
+            psns.update(self.sitedb.PNNstoPSNs(nodes))
+>>>>>>> df87295b4f5ba433a5e722c0e60675dc3ef1e16b
             result[name] = list(psns)
 
         return result, fullResync
@@ -141,22 +153,35 @@ class DataLocationMapper():
                          datasetSearch = False):
         """Get data location from dbs"""
         result = defaultdict(set)
-        for item in dataItems:
+        for dataItem in dataItems:
             try:
+<<<<<<< HEAD
                 if datasetSearch:
                     phedexNodeNames = dbs.listDatasetLocation(item, dbsOnly = True)
                 else:
                     phedexNodeNames = dbs.listFileBlockLocation(item, dbsOnly = True)
                 for pnn in phedexNodeNames:
                     result[item].update(pnn)
+=======
+                if datasetSearch or isDataset(dataItem):
+                    phedexNodeNames = dbs.listDatasetLocation(dataItem, dbsOnly = True)
+                else:
+                    phedexNodeNames = dbs.listFileBlockLocation(dataItem, dbsOnly = True)
+                for pnn in phedexNodeNames:
+                    result[dataItem].update(pnn)
+>>>>>>> df87295b4f5ba433a5e722c0e60675dc3ef1e16b
             except Exception as ex:
-                logging.error('Error getting block location from dbs for %s: %s' % (item, str(ex)))
+                logging.error('Error getting block location from dbs for %s: %s' % (dataItem, str(ex)))
 
         # convert the sets to lists
         for name, nodes in result.items():
             psns = set()
+<<<<<<< HEAD
             for x in nodes:
                 psns.update(self.sitedb.PNNtoPSN(x))
+=======
+            psns.update(self.sitedb.PNNstoPSNs(nodes))
+>>>>>>> df87295b4f5ba433a5e722c0e60675dc3ef1e16b
             result[name] = list(psns)
 
         return result, True # partial dbs updates not supported

@@ -49,8 +49,13 @@ class EventAwareLumiBasedTest(unittest.TestCase):
                                 dbinterface = myThread.dbi)
 
         locationAction = daofactory(classname = "Locations.New")
+<<<<<<< HEAD
         locationAction.execute(siteName = 's1', pnn = "T1_US_FNAL_Disk")
         locationAction.execute(siteName = 's2', pnn = "T2_CH_CERN")
+=======
+        locationAction.execute(siteName = "T1_US_FNAL", pnn = "T1_US_FNAL_Disk")
+        locationAction.execute(siteName = "T2_CH_CERN", pnn = "T2_CH_CERN")
+>>>>>>> df87295b4f5ba433a5e722c0e60675dc3ef1e16b
 
         self.testWorkflow = Workflow(spec = "spec.xml", owner = "Steve",
                                 name = "wf001", task = "Test")

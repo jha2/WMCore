@@ -25,7 +25,7 @@ from WMCore.WMBS.Subscription import Subscription
 from WMCore.WMBS.Job import Job
 from WMCore.WMException import WMException
 from WMCore.DataStructs.Run import Run
-from WMComponent.DBSBuffer.Database.Interface.DBSBufferFile import DBSBufferFile
+from WMComponent.DBS3Buffer.DBSBufferFile import DBSBufferFile
 from WMComponent.DBS3Buffer.DBSBufferDataset import DBSBufferDataset
 from WMCore.DAOFactory import DAOFactory
 from WMCore.WMConnectionBase import WMConnectionBase
@@ -309,8 +309,12 @@ class WMBSHelper(WMConnectionBase):
             logging.info("Child subscription created: %s" % subscription["id"])
 
         outputModules = task.getOutputModulesForTask()
+        ignoredOutputModules = task.getIgnoredOutputModulesForTask()
         for outputModule in outputModules:
             for outputModuleName in outputModule.listSections_():
+                if outputModuleName in ignoredOutputModules:
+                    logging.info("IgnoredOutputModule set for %s, skipping fileset creation.", outputModuleName)
+                    continue
                 outputFileset = Fileset(self.outputFilesetName(task, outputModuleName))
                 outputFileset.create()
                 outputFileset.markOpen(True)
@@ -737,10 +741,13 @@ class WMBSHelper(WMConnectionBase):
                 continue
 
             # Create a LumiList from the WMBS info
-            lumis = []
+            runLumis = {}
             for x in f['LumiList']:
-                lumis.append([str(x['RunNumber']), x['LumiSectionNumber']])
-            fileLumiList = LumiList(lumis=lumis)
+                if x['RunNumber'] in runLumis:
+                    runLumis[x['RunNumber']].extend(x['LumiSectionNumber'])
+                else:
+                    runLumis[x['RunNumber']] = x['LumiSectionNumber']
+            fileLumiList = LumiList(runsAndLumis=runLumis)
 
             if lumiMask:
                 if fileLumiList & lumiMask:  # At least one lumi from file is in lumiMask

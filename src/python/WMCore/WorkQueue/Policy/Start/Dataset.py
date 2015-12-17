@@ -6,11 +6,10 @@ WorkQueue splitting by dataset
 __all__ = []
 
 
-
+from WMCore.Services.SiteDB.SiteDB import SiteDBJSON as SiteDB
 from WMCore.WorkQueue.Policy.Start.StartPolicyInterface import StartPolicyInterface
 from WMCore.WorkQueue.WorkQueueExceptions import WorkQueueWMSpecError
 from math import ceil
-from WMCore.WorkQueue.WorkQueueUtils import sitesFromStorageEelements
 from WMCore import Lexicon
 
 class Dataset(StartPolicyInterface):
@@ -20,6 +19,7 @@ class Dataset(StartPolicyInterface):
         self.args.setdefault('SliceType', 'NumberOfFiles')
         self.args.setdefault('SliceSize', 1)
         self.lumiType = "NumberOfLumis"
+        self.siteDB = SiteDB()
 
     def split(self):
         """Apply policy to spec"""
@@ -164,11 +164,17 @@ class Dataset(StartPolicyInterface):
                 locations = set(dbs.listFileBlockLocation(block['block']))
             else:
                 locations = locations.intersection(dbs.listFileBlockLocation(block['block']))
+<<<<<<< HEAD
             
             if self.wmspec.locationDataSourceFlag():
                 locations = locations.union(siteWhiteList)
+=======
+>>>>>>> df87295b4f5ba433a5e722c0e60675dc3ef1e16b
 
         # all needed blocks present at these sites
-        if locations:
-            self.data[datasetPath] = list(locations)
+        if self.wmspec.locationDataSourceFlag():
+            self.data[datasetPath] = list(locations.union(siteWhiteList))
+        elif locations:
+            self.data[datasetPath] = list(set(self.siteDB.PNNstoPSNs(locations)))
+
         return validBlocks

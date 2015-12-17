@@ -5,10 +5,8 @@ _DBSBufferUtil_
 APIs related to using the DBSBuffer.
 """
 
-import logging
 import threading
 
-from WMCore.WMFactory import WMFactory
 from WMCore.DAOFactory import DAOFactory
 from WMComponent.DBS3Buffer.DBSBufferFile import DBSBufferFile
 from WMCore.DataStructs.Run import Run
@@ -19,14 +17,14 @@ class DBSBufferUtil(WMConnectionBase):
     APIs related to file addition for DBSBuffer
 
     """
-
-    def __init__(self, logger=None, dbfactory = None):
+    def __init__(self):
 
         myThread = threading.currentThread()
         self.daoFactory = DAOFactory(package = "WMComponent.DBS3Buffer",
                                      logger = myThread.logger,
                                      dbinterface = myThread.dbi)
 
+<<<<<<< HEAD
 
     def addFile(self, file, dataset=0):
         """
@@ -124,6 +122,8 @@ class DBSBufferUtil(WMConnectionBase):
         newDS.execute(inDBS = inDBS, appName = algo["ApplicationName"], appVer = algo["ApplicationVersion"], appFam = algo["ApplicationFamily"], \
                       psetHash = algo["PSetHash"], conn = self.getDBConn(), transaction=self.existingTransaction())
         self.commitTransaction(existingTransaction)
+=======
+>>>>>>> df87295b4f5ba433a5e722c0e60675dc3ef1e16b
         return
 
 
@@ -134,23 +134,14 @@ class DBSBufferUtil(WMConnectionBase):
         Yes, this is a stupid place to put it.
         No, there's not better place.
         """
-
-
-        myThread = threading.currentThread()
-
         dbsFiles = []
-
-        existingTransaction = self.beginTransaction()
 
         binds = []
         for f in fileObjs:
             binds.append(f["id"])
 
-
         loadFiles = self.daoFactory(classname = "DBSBufferFiles.LoadBulkFilesByID")
-        results = loadFiles.execute(files = binds, conn = self.getDBConn(),
-                                    transaction = self.existingTransaction())
-
+        results = loadFiles.execute(files = binds, transaction = False)
 
         for entry in results:
             # Add loaded information
@@ -173,35 +164,19 @@ class DBSBufferUtil(WMConnectionBase):
                     dbsfile['parents'].add(newFile)
                 del dbsfile['parentLFNs']
 
-
-
-        self.commitTransaction(existingTransaction)
-
-
         return dbsFiles
-
 
 
     def findUploadableDAS(self):
         """
         _findUploadableDAS_
 
-        Find all the Dataset-Algo combinations
-        with uploadable files.
+        Find all dataset_algo with uploadable files.
         """
-
-        myThread = threading.currentThread()
-        existingTransaction = self.beginTransaction()
-
         findDAS = self.daoFactory(classname = "FindDASToUpload")
-        result  = findDAS.execute(conn = self.getDBConn(),
-                                  transaction=self.existingTransaction())
-
-        self.commitTransaction(existingTransaction)
+        result = findDAS.execute(transaction = False)
 
         return result
-
-
 
 
     def findOpenBlocks(self):
@@ -210,14 +185,9 @@ class DBSBufferUtil(WMConnectionBase):
 
         This should find all blocks.
         """
-        myThread = threading.currentThread()
-        existingTransaction = self.beginTransaction()
-
         openBlocks = self.daoFactory(classname = "GetOpenBlocks")
-        result = openBlocks.execute(conn = self.getDBConn(),
-                                    transaction=self.existingTransaction())
+        result = openBlocks.execute(transaction = False)
 
-        self.commitTransaction(existingTransaction)
         return result
 
 
@@ -229,20 +199,10 @@ class DBSBufferUtil(WMConnectionBase):
         blocks associated with it in the
         Open status
         """
-
-        myThread = threading.currentThread()
-        existingTransaction = self.beginTransaction()
-
         findBlocks = self.daoFactory(classname = "LoadBlocksByDAS")
-        result     = findBlocks.execute(das = das,
-                                        conn = self.getDBConn(),
-                                        transaction=self.existingTransaction())
-
-        self.commitTransaction(existingTransaction)
+        result = findBlocks.execute(das = das, transaction = False)
 
         return result
-
-
 
 
     def loadBlocks(self, blocknames):
@@ -257,37 +217,22 @@ class DBSBufferUtil(WMConnectionBase):
             # Nothing to do
             return []
 
-        myThread = threading.currentThread()
-        existingTransaction = self.beginTransaction()
-
         findBlocks = self.daoFactory(classname = "LoadBlocks")
-        result     = findBlocks.execute(blocknames,
-                                        conn = self.getDBConn(),
-                                        transaction=self.existingTransaction())
+        result = findBlocks.execute(blocknames, transaction = False)
 
-        self.commitTransaction(existingTransaction)
         return result
 
 
-
-
-    def findUploadableFilesByDAS(self, das):
+    def findUploadableFilesByDAS(self, datasetpath):
         """
         _findUploadableDAS_
 
-        Find all the Dataset-Algo files available
-        with uploadable files.
+        Find all the uploadable files for a given DatasetPath.
         """
-
-        myThread = threading.currentThread()
-        existingTransaction = self.beginTransaction()
-
         dbsFiles = []
 
         findFiles = self.daoFactory(classname = "LoadDBSFilesByDAS")
-        results   = findFiles.execute(das = das,
-                                      conn = self.getDBConn(),
-                                      transaction=self.existingTransaction())
+        results = findFiles.execute(datasetpath = datasetpath, transaction = False)
 
         for entry in results:
             # Add loaded information
@@ -310,85 +255,7 @@ class DBSBufferUtil(WMConnectionBase):
                     dbsfile['parents'].add(newFile)
                 del dbsfile['parentLFNs']
 
-        self.commitTransaction(existingTransaction)
-
         return dbsFiles
-
-
-    def updateBlocks(self, blocks):
-        """
-        _updateBlocks_
-
-        Update the blocks in DBSBuffer
-        """
-        if len(blocks) < 1:
-            # Nothing to do
-            return
-
-        myThread = threading.currentThread()
-        existingTransaction = self.beginTransaction()
-
-        updateBlock = self.daoFactory(classname = "UpdateBlocks")
-        updateBlock.execute(blocks, conn = self.getDBConn(),
-                            transaction=self.existingTransaction())
-        self.commitTransaction(existingTransaction)
-        return
-
-    def updateFileStatus(self, blocks, status):
-        """
-        _updateFileStatus_
-
-        Update the status of files that are associated with the given block.
-        """
-        if len(blocks) < 1:
-            return
-
-        myThread = threading.currentThread()
-        existingTransaction = self.beginTransaction()
-
-        updateBlock = self.daoFactory(classname = "UpdateFiles")
-        updateBlock.execute(blocks, status, conn = self.getDBConn(),
-                            transaction = self.existingTransaction())
-        self.commitTransaction(existingTransaction)
-        return
-
-    def createBlocks(self, blocks):
-        """
-        _createBlocks_
-
-        Create blocks in the DBSBuffer
-        """
-
-        if len(blocks) < 1:
-            return
-
-        existingTransaction = self.beginTransaction()
-
-        newBlocks = self.daoFactory(classname = "CreateBlocks")
-        newBlocks.execute(blocks = blocks, conn = self.getDBConn(),
-                          transaction=self.existingTransaction())
-        self.commitTransaction(existingTransaction)
-        return
-
-
-    def setBlockFiles(self, binds):
-        """
-        _SetBlockFiles_
-
-        Set files to have the right blocks/
-        """
-
-        if len(binds) < 1:
-            # Nothing to do
-            return
-
-        existingTransaction = self.beginTransaction()
-
-        setBlocks = self.daoFactory(classname = "SetBlockFiles")
-        setBlocks.execute(binds = binds, conn = self.getDBConn(),
-                          transaction=self.existingTransaction())
-        self.commitTransaction(existingTransaction)
-        return
 
 
     def loadFilesByBlock(self, blockname):
@@ -397,15 +264,10 @@ class DBSBufferUtil(WMConnectionBase):
 
         Get all files associated with a block
         """
-
         dbsFiles = []
 
-        existingTransaction = self.beginTransaction()
-
         findFiles = self.daoFactory(classname = "LoadFilesByBlock")
-        results   = findFiles.execute(blockname = blockname,
-                                      conn = self.getDBConn(),
-                                      transaction=self.existingTransaction())
+        results = findFiles.execute(blockname = blockname, transaction = False)
 
         for entry in results:
             # Add loaded information
@@ -427,8 +289,6 @@ class DBSBufferUtil(WMConnectionBase):
                     newFile = DBSBufferFile(lfn = lfn)
                     dbsfile['parents'].add(newFile)
                 del dbsfile['parentLFNs']
-
-        self.commitTransaction(existingTransaction)
 
         return dbsFiles
     
@@ -438,14 +298,7 @@ class DBSBufferUtil(WMConnectionBase):
         _getCompletedWorkflows_
 
         """
-
-        myThread = threading.currentThread()
-        existingTransaction = self.beginTransaction()
-
         wfCompletedDAO = self.daoFactory(classname = "GetCompletedWorkflows")
-        result  = wfCompletedDAO.execute(conn = self.getDBConn(),
-                                            transaction=self.existingTransaction())
-
-        self.commitTransaction(existingTransaction)
+        result = wfCompletedDAO.execute(transaction = False)
 
         return result

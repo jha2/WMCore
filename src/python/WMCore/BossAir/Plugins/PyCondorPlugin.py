@@ -10,6 +10,7 @@ For glide-in use.
 """
 
 import os
+import re
 import time
 import Queue
 import os.path
@@ -35,6 +36,7 @@ from WMCore.Algorithms                 import SubprocessAlgos
 import htcondor as condor
 import classad
 
+GROUP_NAME_RE = re.compile("^[a-zA-Z0-9_]+_([A-Z]+)-")
 
 def submitWorker(input, results, timeout = None):
     """
@@ -974,6 +976,9 @@ class PyCondorPlugin(BasePlugin):
 
         if job.get('requestName', None):
             jdl.append('+WMAgent_RequestName = "%s"\n' % job['requestName'])
+            m = GROUP_NAME_RE.match(job['requestName'])
+            if m:
+                jdl.append('+CMSGroups = %s\n' % classad.quote(m.groups()[0]))
 
         if job.get('taskName', None):
             jdl.append('+WMAgent_SubTaskName = "%s"\n' % job['taskName'])
@@ -981,6 +986,12 @@ class PyCondorPlugin(BasePlugin):
         if job.get('taskType', None):
             jdl.append('+CMS_JobType = "%s"\n' % job['taskType'])
 
+<<<<<<< HEAD
+=======
+        # Handling for AWS, cloud and opportunistic resources
+        jdl.append('+AllowOpportunistic = %s\n' % job.get('allowOpportunistic', False))
+
+>>>>>>> df87295b4f5ba433a5e722c0e60675dc3ef1e16b
         # dataset info
         if job.get('inputDataset', None):
             jdl.append('+DESIRED_CMSDataset = "%s"\n' % job['inputDataset'])

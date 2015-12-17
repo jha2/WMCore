@@ -60,7 +60,10 @@ class Request(RESTEntity):
             safe.kwargs["name"] = param.args[0]
             param.args.pop()
             return
-            
+        
+        if"status" in param.kwargs and param.kwargs["status"].endswith("-archived"):
+            raise InvalidSpecParameterValue("Can't retieve bulk archived status requests, use other search arguments")
+        
         for prop in param.kwargs:
             safe.kwargs[prop] = param.kwargs[prop]
         
@@ -166,6 +169,13 @@ class Request(RESTEntity):
             safe.kwargs['workload_pair_list'].append((workload, r_args))
             
         safe.kwargs["multi_update_flag"] = True
+        
+        
+    def _getRequestNamesFromBody(self, param, safe, valFunc):
+        
+        request_names = JsonWrapper.loads(cherrypy.request.body.read())
+        safe.kwargs['workload_pair_list'] = request_names
+        safe.kwargs["multi_names_flag"] = True
             
     def validate(self, apiobj, method, api, param, safe):
         # to make validate successful
@@ -197,9 +207,14 @@ class Request(RESTEntity):
                     #special case for multi update from browser.
                     param.args.pop()
                     self._validateMultiRequests(param, safe, validate_request_update_args)
+                elif args_length == 1 and param.args[0] == "bynames":
+                    #special case for multi update from browser.
+                    param.args.pop()
+                    self._getRequestNamesFromBody(param, safe, validate_request_update_args)
                 else:
                     self._validateRequestBase(param, safe, validate_request_create_args)    
-                    
+        except InvalidSpecParameterValue as ex:
+            raise ex
         except Exception as ex:
             #TODO add proper error message instead of trace back
             msg = traceback.format_exc()
@@ -261,9 +276,13 @@ class Request(RESTEntity):
         team = kwargs.get("team", False)
         mc_pileup = kwargs.get("mc_pileup", False)
         data_pileup = kwargs.get("data_pileup", False)
+        detail = kwargs.get("detail", True)
+        if detail in (False, "false", "False"):
+            option = {"include_docs": False}
+        else:
+            option = {"include_docs": True}
         # eventhing should be stale view. this only needs for test
         _nostale = kwargs.get("_nostale", False)
-        option = {}
         if _nostale:
             self.reqmgr_db_service._setNoStale()
             
@@ -274,7 +293,7 @@ class Request(RESTEntity):
         if status and team:
             request_info.append(self.reqmgr_db_service.getRequestByCouchView("byteamandstatus", option, [[team, status]]))
         if status and request_type:
-            request_info.append(self.reqmgr_db_service.getRequestByCouchView("byteamandstatus", option, [[team, status]]))
+            request_info.append(self.reqmgr_db_service.getRequestByCouchView("requestsbystatusandtype", option, [[status, request_type]]))
         if name:
             request_info.append(self.reqmgr_db_service.getRequestByNames(name))
         if prep_id:
@@ -354,7 +373,16 @@ class Request(RESTEntity):
                 requestAgentUrlList.append([request, agentUrl]);
 
         return requestAgentUrlList;
-
+    
+    def _retrieveResubmissionChildren(self, request_name):
+        
+        result = self.reqmgr_db.loadView('ReqMgr', 'childresubmissionrequests', keys = [request_name])['rows']
+        childrenRequestNames = []
+        for child in result:
+            childrenRequestNames.append(child['id'])
+            childrenRequestNames.extend(self._retrieveResubmissionChildren(child['id']))
+        return childrenRequestNames
+    
     def _updateRequest(self, workload, request_args):
                        
         if workload == None:
@@ -363,13 +391,21 @@ class Request(RESTEntity):
         
         dn = cherrypy.request.user.get("dn", "unknown")
         
+        if ('SoftTimeout' in request_args) and ('GracePeriod' in request_args): 
+            request_args['HardTimeout'] = request_args['SoftTimeout'] + request_args['GracePeriod']
+        
+        if 'RequestPriority' in request_args:
+            self.gq_service.updatePriority(workload.name(), request_args['RequestPriority'])
+        
         if "total_jobs" in request_args:
             # only GQ update this stats
             # request_args should contain only 4 keys 'total_jobs', 'input_lumis', 'input_events', 'input_num_files'}
             report = self.reqmgr_db_service.updateRequestStats(workload.name(), request_args)
         # if is not just updating status
         else:
-            if len(request_args) > 1 or "RequestStatus" not in request_args:
+            req_status = request_args.get("RequestStatus", None)
+            
+            if len(request_args) >= 1 and req_status == None:
                 try:
                     workload.updateArguments(request_args)
                 except Exception as ex:
@@ -380,12 +416,16 @@ class Request(RESTEntity):
                 # trailing / is needed for the savecouchUrl function
                 workload.saveCouch(self.config.couch_host, self.config.couch_reqmgr_db)
             
-            req_status = request_args.get("RequestStatus", None)
+            elif (req_status in ["closed-out"  "announced"]) and request_args.get("cascade", False):
+                cascade_list = self._retrieveResubmissionChildren(workload.name)
+                for req_name in cascade_list:
+                    report = self.reqmgr_db_service.updateRequestStatus(req_name, req_status)
+            
             # If it is aborted or force-complete transition call workqueue to cancel the request
-            if req_status == "aborted" or req_status == "force-complete":
-                self.gq_service.cancelWorkflow(workload.name())
-                
-            report = self.reqmgr_db_service.updateRequestProperty(workload.name(), request_args, dn)
+            else:
+                if req_status == "aborted" or req_status == "force-complete":
+                    self.gq_service.cancelWorkflow(workload.name())
+                report = self.reqmgr_db_service.updateRequestProperty(workload.name(), request_args, dn)
         
         if report == 'OK':
             return {workload.name(): "OK"}
@@ -414,9 +454,25 @@ class Request(RESTEntity):
         # delete should also happen on WMStats
         cherrypy.log("INFO: Delete '%s' done." % request_name)
         
+    def _update_additional_request_args(self, workload, request_args):
+        """
+        add to request_args properties which is not initially set from user.
+        This data will put in to couchdb. 
+        Update request_args here if additional information need to be put in couchdb
+        """
+        request_args['RequestWorkflow'] = sanitizeURL("%s/%s/%s/spec" % (request_args["CouchURL"], 
+                                            request_args["CouchWorkloadDBName"], workload.name()))['url']
+        
+        # Add the output datasets if necessary
+        # for some bizarre reason OutpuDatasets is list of lists    
+        request_args['OutputDatasets'] = workload.listOutputDatasets()
+        
+        #TODO: remove this after reqmgr2 replice reqmgr (reqmgr2Only)
+        request_args['ReqMgr2Only'] = True
+        return
     
     @restcall(formats = [('application/json', JSONFormat())])
-    def post(self, workload_pair_list, multi_update_flag = False):
+    def post(self, workload_pair_list, multi_update_flag = False, multi_names_flag = False):
         """
         Create and update couchDB with  a new request. 
         request argument is passed from validation 
@@ -439,14 +495,15 @@ class Request(RESTEntity):
         
         if multi_update_flag:
             return self.put(workload_pair_list)
+        if multi_names_flag:
+            return self.get(name = workload_pair_list)
             
         out = []
         for workload, request_args in workload_pair_list:
+            
+            self._update_additional_request_args(workload, request_args)
+            
             cherrypy.log("INFO: Create request, input args: %s ..." % request_args)
-            request_args['RequestWorkflow'] = sanitizeURL("%s/%s/%s/spec" % (request_args["CouchURL"], 
-                                            request_args["CouchWorkloadDBName"], workload.name()))['url']
-            #TODO: remove this after reqmgr2 replice reqmgr (reqmgr2Only)
-            request_args['ReqMgr2Only'] = True
             workload.saveCouch(request_args["CouchURL"], request_args["CouchWorkloadDBName"],
                                               metadata=request_args)
             out.append({'request':workload.name()})

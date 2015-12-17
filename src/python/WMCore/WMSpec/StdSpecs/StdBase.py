@@ -8,7 +8,7 @@ import logging
 
 from WMCore.Cache.WMConfigCache import ConfigCache, ConfigCacheException
 from WMCore.Configuration import ConfigSection
-from WMCore.Lexicon import lfnBase, identifier, acqname, cmsswversion, cmsname, couchurl
+from WMCore.Lexicon import lfnBase, identifier, acqname, cmsswversion, cmsname, couchurl, block
 from WMCore.Services.Dashboard.DashboardReporter import DashboardReporter
 from WMCore.WMSpec.WMSpecErrors import WMSpecFactoryException
 from WMCore.WMSpec.WMWorkload import newWorkload
@@ -127,7 +127,19 @@ class StdBase(object):
                                        'TopMuEG' : 'RAW-RECO',
                                        'EcalActivity' : 'RAW-RECO',
                                        'CosmicSP' : 'RAW-RECO',
-                                       'CosmicTP' : 'RAW-RECO'
+                                       'CosmicTP' : 'RAW-RECO',
+                                       'ZMM' : 'RAW-RECO',
+                                       'Onia' : 'RECO',
+                                       'HighPtJet' : 'RAW-RECO',
+                                       'D0Meson' : 'RECO',
+                                       'Photon' : 'AOD',
+                                       'ZEE' : 'AOD',
+                                       'BJet' : 'AOD',
+                                       'OniaCentral' : 'RECO',
+                                       'OniaPeripheral' : 'RECO',
+                                       'SingleTrack' : 'AOD',
+                                       'MinBias' : 'AOD',
+                                       'OniaUPC' : 'RAW-RECO'
                                        }
                     dataTier = skimToDataTier.get(physicsSkim, 'USER')
                     moduleLabel = "SKIMStream%s" % physicsSkim
@@ -230,6 +242,7 @@ class StdBase(object):
         workload.setCampaign(self.campaign)
         workload.setRequestType(self.requestType)
         workload.setPrepID(self.prepID)
+        workload.setAllowOpportunistic(self.allowOpportunistic)
         return workload
 
     def setupProcessingTask(self, procTask, taskType, inputDataset = None, inputStep = None,
@@ -929,7 +942,10 @@ class StdBase(object):
                                         "validate" : lambda x: all([cmsname(y) for y in x])},
                      "SiteWhitelist" : {"default" : [], "type" : makeList,
                                         "validate" : lambda x: all([cmsname(y) for y in x])},
-                     "TrustSitelists" : {"default" : False, "type" : strToBool},
+                     "BlockBlacklist" : {"default" : [], "type" : makeList, 
+                                         "validate" : lambda x: all([block(y) for y in x])},
+                     "BlockWhitelist" : {"default" : [], "type" : makeList, 
+                                         "validate" : lambda x: all([block(y) for y in x])},
                      "UnmergedLFNBase" : {"default" : "/store/unmerged"},
                      "MergedLFNBase" : {"default" : "/store/data"},
                      "MinMergeSize" : {"default" : 2 * 1024 * 1024 * 1024, "type" : int,
@@ -966,12 +982,15 @@ class StdBase(object):
                      "IncludeParents" : {"default" : False,  "type" : strToBool},
                      "Multicore" : {"default" : 1, "null" : True,
                                     "validate" : lambda x : x == "auto" or (int(x) > 0)},
+                     # data location management
+                     "TrustSitelists" : {"default" : False, "type" : strToBool},
+                     "UseSiteListAsLocation" : {"default" : False, "type" : bool},
+                     "AllowOpportunistic" : {"default" : False, "type" : bool},
                      #from assignment: performance monitoring data
                      "MaxRSS" : {"default" : 2411724, "type" : int, "validate" : lambda x : x > 0},
                      "MaxVSize" : {"default" : 20411724, "type" : int, "validate" : lambda x : x > 0},
                      "SoftTimeout" : {"default" : 129600, "type" : int, "validate" : lambda x : x > 0},
                      "GracePeriod" : {"default" : 300, "type" : int, "validate" : lambda x : x > 0},
-                     "UseSiteListAsLocation" : {"default" : False, "type" : bool},
                      
                      # Set phedex subscription information
                      "CustodialSites" : {"default" : [], "type" : makeList, "assign_optional": True,
@@ -989,7 +1008,7 @@ class StdBase(object):
                      "NonCustodialSubType" : {"default" : "Replica", "type" : str, "assign_optional": True,
                                               "validate" : lambda x: x in ["Move", "Replica"]},
                      
-                     # Block closing informaiont
+                     # Block closing information
                      "BlockCloseMaxWaitTime" : {"default" : 66400, "type" : int, "validate" : lambda x : x > 0},
                      "BlockCloseMaxFiles" : {"default" : 500, "type" : int, "validate" : lambda x : x > 0},
                      "BlockCloseMaxEvents" : {"default" : 25000000, "type" : int, "validate" : lambda x : x > 0},

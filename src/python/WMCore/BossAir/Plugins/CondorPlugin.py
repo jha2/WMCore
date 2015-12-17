@@ -32,6 +32,8 @@ from WMCore.BossAir.Plugins.BasePlugin import BasePlugin, BossAirPluginException
 from WMCore.FwkJobReport.Report        import Report
 from WMCore.Algorithms                 import SubprocessAlgos
 
+GROUP_NAME_RE = re.compile("^[a-zA-Z0-9_]+_([A-Z]+)-")
+
 def submitWorker(input, results, timeout = None):
     """
     _outputWorker_
@@ -1024,6 +1026,10 @@ class CondorPlugin(BasePlugin):
 
         if job.get('requestName', None):
             jdl.append('+WMAgent_RequestName = "%s"\n' % job['requestName'])
+            m = GROUP_NAME_RE.match(job['requestName'])
+            if m:
+                jdl.append('+CMSGroups = "%s"\n' % m.groups()[0])
+
 
         if job.get('taskName', None):
             jdl.append('+WMAgent_SubTaskName = "%s"\n' % job['taskName'])
@@ -1031,6 +1037,12 @@ class CondorPlugin(BasePlugin):
         if job.get('taskType', None):
             jdl.append('+CMS_JobType = "%s"\n' % job['taskType'])
 
+<<<<<<< HEAD
+=======
+        # Handling for AWS, cloud and opportunistic resources
+        jdl.append('+AllowOpportunistic = %s\n' % job.get('allowOpportunistic', False))
+
+>>>>>>> df87295b4f5ba433a5e722c0e60675dc3ef1e16b
         # dataset info
         if job.get('inputDataset', None):
             jdl.append('+DESIRED_CMSDataset = "%s"\n' % job['inputDataset'])

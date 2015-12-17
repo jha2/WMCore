@@ -44,7 +44,10 @@ class MockDbsApi(object):
     def serverinfo(self):
         return None
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> df87295b4f5ba433a5e722c0e60675dc3ef1e16b
     def __getattr__(self, item):
         """
         __getattr__ gets called in case lookup of the actual method fails. We use this to return data based on

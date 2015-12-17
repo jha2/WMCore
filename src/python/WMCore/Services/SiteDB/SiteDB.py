@@ -11,6 +11,9 @@ from WMCore.Services.EmulatorSwitch import emulatorHook
 import json
 import re
 
+#TODO remove this when all DBS origin_site_name is converted to PNN
+pnn_regex = re.compile(r'^T[0-3%]((_[A-Z]{2}(_[A-Za-z0-9]+)*)?)')
+
 def row2dict(columns, row):
     """Convert rows to dictionaries with column keys from description"""
     robj = {}
@@ -37,7 +40,7 @@ class SiteDBJSON(Service):
         config['endpoint'] = "https://cmsweb.cern.ch/sitedb/data/prod/"
         Service.__init__(self, config)
 
-    def getJSON(self, callname, file = 'result.json', clearCache = False, verb = 'GET', data={}):
+    def getJSON(self, callname, filename = 'result.json', clearCache = False, verb = 'GET', data={}):
         """
         _getJSON_
 
@@ -48,13 +51,13 @@ class SiteDBJSON(Service):
         """
         result = ''
         if clearCache:
-            self.clearCache(cachefile=file, inputdata=data, verb = verb)
+            self.clearCache(cachefile=filename, inputdata=data, verb = verb)
         try:
             #Set content_type and accept_type to application/json to get json returned from siteDB.
             #Default is text/html which will return xml instead
             #Add accept-encoding to gzip,identity to overwrite httplib default gzip,deflate,
             #which is not working properly with cmsweb
-            f = self.refreshCache(cachefile=file, url=callname, inputdata=data,
+            f = self.refreshCache(cachefile=filename, url=callname, inputdata=data,
                                   verb = verb, contentType='application/json',
                                   incoming_headers={'Accept' : 'application/json',
                                                     'accept-encoding' : 'gzip,identity'})
@@ -67,35 +70,42 @@ class SiteDBJSON(Service):
             results = unflattenJSON(results)
             return results
         except SyntaxError:
-            self.clearCache(file, args, verb = verb)
+            self.clearCache(filename, inputdata=data, verb=verb)
             raise SyntaxError("Problem parsing data. Cachefile cleared. Retrying may work")
 
     def _people(self, username=None, clearCache=False):
         if username:
-            file = 'people_%s.json' % (username)
-            people = self.getJSON("people", file=file, clearCache=clearCache, data=dict(match=username))
+            filename = 'people_%s.json' % (username)
+            people = self.getJSON("people", filename=filename, clearCache=clearCache, data=dict(match=username))
         else:
-            file = 'people.json'
-            people = self.getJSON("people", file=file, clearCache=clearCache)
+            filename = 'people.json'
+            people = self.getJSON("people", filename=filename, clearCache=clearCache)
         return people
 
     def _sitenames(self, sitename=None, clearCache=False):
-        file = 'site-names.json'
-        sitenames = self.getJSON('site-names', file=file, clearCache=clearCache)
+        filename = 'site-names.json'
+        sitenames = self.getJSON('site-names', filename=filename, clearCache=clearCache)
         if sitename:
             sitenames = filter(lambda x: x[u'site_name'] == sitename, sitenames)
         return sitenames
 
     def _siteresources(self, clearCache=False):
-        file = 'site-resources.json'
-        return self.getJSON('site-resources', file=file)
+        filename = 'site-resources.json'
+        return self.getJSON('site-resources', filename=filename)
 
-    def _dataProcessing(self, pnn=None, clearCache=False):
-        file = 'data-processing.json'
-        psnMap = self.getJSON('data-processing', file=file, clearCache=clearCache)
+    def _dataProcessing(self, pnn=None, psn=None, clearCache=False):
+        """
+        Returns a mapping between PNNs and PSNs.
+        In case a PSN is provided, then it returns only the PNN(s) it maps to.
+        In case a PNN is provided, then it returns only the PSN(s) it maps to.
+        """
+        filename = 'data-processing.json'
+        mapping = self.getJSON('data-processing', filename=filename, clearCache=clearCache)
         if pnn:
-            psnMap = filter(lambda x: x['phedex_name'] == pnn, psnMap)
-        return psnMap
+            mapping = [item['psn_name'] for item in mapping if item['phedex_name']==pnn]
+        elif psn:
+            mapping = [item['phedex_name'] for item in mapping if item['psn_name']==psn]
+        return mapping
 
     def dnUserName(self, dn):
         """
@@ -186,10 +196,9 @@ class SiteDBJSON(Service):
             node_names = filter(lambda x: not x.endswith("_Buffer"), node_names)
         return node_names
 
-    def cmsNametoList(self, cmsname_pattern, kind, file=None):
+    def cmsNametoList(self, cmsname_pattern, kind):
         """
-        Convert CMS name pattern T1*, T2* to a list of CEs or SEs. The file is
-        for backward compatibility with SiteDBv1
+        Convert CMS name pattern T1*, T2* to a list of CEs or SEs.
         """
         cmsname_pattern = cmsname_pattern.replace('*','.*')
         cmsname_pattern = cmsname_pattern.replace('%','.*')
@@ -234,6 +243,21 @@ class SiteDBJSON(Service):
         cmsname = filter(lambda x: x['type']=='cms', siteNames)
         return [x['alias'] for x in cmsname]
 
+    def seToPNNs(self, se):
+        """
+        Convert SE name to the PNN they belong to,
+        this is not a 1-to-1 relation but 1-to-many, return a list of pnns
+        """
+        try:
+            siteresources = filter(lambda x: x['fqdn']==se, self._siteresources())
+        except IndexError:
+            return None
+        siteNames = []
+        for resource in siteresources:
+            siteNames.extend(self._sitenames(sitename=resource['site_name']))
+        pnns = filter(lambda x: x['type']=='phedex', siteNames)
+        return [x['alias'] for x in pnns]
+
 
     def cmsNametoPhEDExNode(self, cmsName):
         """
@@ -250,10 +274,21 @@ class SiteDBJSON(Service):
 
 
     def PNNtoPSN(self, pnn):
+<<<<<<< HEAD
+=======
         """
         Convert PhEDEx node name to Processing Site Name(s)
         """
+        return self._dataProcessing(pnn=pnn)
 
+    def PSNtoPNN(self, psn):
+>>>>>>> df87295b4f5ba433a5e722c0e60675dc3ef1e16b
+        """
+        Convert Processing Site Name to PhEDEx Node Name(s)
+        """
+        return self._dataProcessing(psn=psn)
+
+<<<<<<< HEAD
         psnMap = self._dataProcessing()
         try:
             reducedMap = filter(lambda x: x[u'phedex_name']==pnn, psnMap)
@@ -261,6 +296,33 @@ class SiteDBJSON(Service):
         except IndexError:
             return None
         return psns
+=======
+    def PNNstoPSNs(self, pnns):
+        """
+        Convert list of PhEDEx node names to Processing Site Name(s)
+        """
+        psns = set()
+        for pnn in pnns:
+            if pnn=="T0_CH_CERN_Export" or pnn.endswith("_MSS") or pnn.endswith("_Buffer"):
+                continue
+            psn_list = self.PNNtoPSN(pnn)
+            psns.update(psn_list)
+            if not psn_list:
+                self["logger"].warning("No PSNs for PNN: %s" % pnn)
+        return list(psns)
+
+    def PSNstoPNNs(self, psns):
+        """
+        Convert list of Processing Site Names to PhEDEx Node Names
+        """
+        pnns = set()
+        for psn in psns:
+            pnn_list = self.PSNtoPNN(psn)
+            if not pnn_list:
+                self["logger"].warning("No PNNs for PSN: %s" % psn)
+            pnns.update(pnn_list)
+        return list(pnns)
+>>>>>>> df87295b4f5ba433a5e722c0e60675dc3ef1e16b
 
     def PSNtoPNNMap(self, psn_pattern=''):
         if not isinstance(psn_pattern, str):
@@ -273,3 +335,24 @@ class SiteDBJSON(Service):
                 continue
             mapping.setdefault(entry['psn_name'], set()).add(entry['phedex_name'])
         return mapping
+<<<<<<< HEAD
+=======
+    
+    #TODO remove this when all DBS origin_site_name is converted to PNN
+    def checkAndConvertSENameToPNN(self, seNameOrPNN):
+        """
+        check whether argument is sename 
+        if it is convert to PNN
+        if not just return argument
+        """
+        if isinstance(seNameOrPNN, basestring):
+            seNameOrPNN = [seNameOrPNN]
+        
+        newList = []
+        for se in seNameOrPNN:
+            if not pnn_regex.match(se):
+                newList.extend(self.seToPNNs(se))
+            else:
+                newList.append(se)
+        return newList
+>>>>>>> df87295b4f5ba433a5e722c0e60675dc3ef1e16b

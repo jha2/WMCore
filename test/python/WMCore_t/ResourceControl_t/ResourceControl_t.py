@@ -646,7 +646,7 @@ class ResourceControlTest(unittest.TestCase):
         reportPath = os.path.join(self.tempDir, "Report.0.pkl")
         report = Report()
         report.load(reportPath)
-        self.assertEqual(report.getExitCode(), 61301)
+        self.assertEqual(report.getExitCode(), 71301)
         return
 
     def createConfig(self):
@@ -668,6 +668,7 @@ class ResourceControlTest(unittest.TestCase):
         config.JobStateMachine.couchurl        = os.getenv('COUCHURL')
         config.JobStateMachine.couchDBName = "bossair_t"
         config.JobStateMachine.jobSummaryDBName = 'wmagent_summary_t'
+        config.JobStateMachine.summaryStatsDBName = 'stat_summary_t'
         config.section_("BossAir")
         config.BossAir.pluginDir = "WMCore.BossAir.Plugins"
         config.BossAir.pluginNames = ["MockPlugin"]
@@ -736,7 +737,6 @@ class ResourceControlTest(unittest.TestCase):
         myResourceControl = ResourceControl()
         taskList = [{'taskType': 'Processing', 'maxSlots': 100, 'pendingSlots' : 80},
                     {'taskType': 'Merge', 'maxSlots': 50, 'pendingSlots' : 30}]
-
         myResourceControl.insertAllSEs(siteName = 'test', pendingSlots = 200,
                                        runningSlots = 400,
                                        ceName = 'glidein-ce.fnal.gov',

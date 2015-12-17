@@ -10,7 +10,6 @@ import logging
 import threading
 import unittest
 import time
-import inspect
 import re
 import json
 
@@ -44,9 +43,8 @@ from WMCore.Database.CMSCouch           import CouchServer
 from WMCore_t.WMSpec_t.TestSpec     import testWorkload
 from WMCore.WMSpec.Makers.TaskMaker import TaskMaker
 
-from WMComponent_t.AlertGenerator_t.Pollers_t import utils
-
-
+from WMCore.Services.RequestDB.RequestDBWriter import RequestDBWriter
+from WMQuality.Emulators.WMSpecGenerator.ReqMgrDocGenerator import generate_reqmgr_schema
 
 class TaskArchiverTest(unittest.TestCase):
     """
@@ -77,7 +75,13 @@ class TaskArchiverTest(unittest.TestCase):
         self.testInit.setupCouch("wmagent_summary_t", "WMStats")
         self.testInit.setupCouch("wmagent_summary_central_t", "WMStats")
         self.testInit.setupCouch("stat_summary_t", "SummaryStats")
-
+        reqmgrdb = "reqmgrdb_t"
+        self.testInit.setupCouch(reqmgrdb, "ReqMgr")
+        
+        reqDBURL = "%s/%s" % (self.testInit.couchUrl, reqmgrdb)
+        self.requestWriter = RequestDBWriter(reqDBURL)
+        self.requestWriter.defaultStale = {}
+        
         self.daofactory = DAOFactory(package = "WMCore.WMBS",
                                      logger = myThread.logger,
                                      dbinterface = myThread.dbi)
@@ -95,7 +99,6 @@ class TaskArchiverTest(unittest.TestCase):
 
         self.nJobs = 10
         self.campaignName = 'aCampaign'
-        self.alertsReceiver = None
 
         self.uploadPublishInfo = False
         self.uploadPublishDir  = None
@@ -111,9 +114,6 @@ class TaskArchiverTest(unittest.TestCase):
         self.testInit.clearDatabase(modules = ["WMCore.WMBS"])
         self.testInit.delWorkDir()
         self.testInit.tearDownCouch()
-        if self.alertsReceiver:
-            self.alertsReceiver.shutdown()
-            self.alertsReceiver = None
         return
 
     def getConfig(self):
@@ -157,6 +157,7 @@ class TaskArchiverTest(unittest.TestCase):
         config.TaskArchiver.uploadPublishInfo = self.uploadPublishInfo
         config.TaskArchiver.uploadPublishDir  = self.uploadPublishDir
         config.TaskArchiver.userFileCacheURL = os.getenv('UFCURL', 'http://cms-xen38.fnal.gov:7725/userfilecache/')
+        config.TaskArchiver.ReqMgr2ServiceURL = "https://cmsweb-dev.cern.ch/reqmgr2"
         config.TaskArchiver.ReqMgrServiceURL = "https://cmsweb-dev.cern.ch/reqmgr/rest"
         
         config.component_("AnalyticsDataCollector")
@@ -403,6 +404,7 @@ class TaskArchiverTest(unittest.TestCase):
 
 
         return jobList
+    
     def getPerformanceFromDQM(self, dqmUrl, dataset, run):
         # Make function to fetch this from DQM. Returning Null or False if it fails
         getUrl = "%sjsonfairy/archive/%s%s/DQM/TimerService/event_byluminosity" % (dqmUrl, run, dataset)
@@ -458,7 +460,15 @@ class TaskArchiverTest(unittest.TestCase):
         self.assertEquals(data, testDashBoardPayload)
 
         return True
+    
+    def populateWorkflowWithCompleteStatus(self, name ="TestWorkload"):
+        schema = generate_reqmgr_schema(1)
+        schema[0]["RequestName"] = name
 
+        self.requestWriter.insertGenericRequest(schema[0])
+        result = self.requestWriter.updateRequestStatus(name, "completed")
+        return result
+    
     def testA_BasicFunctionTest(self):
         """
         _BasicFunctionTest_
@@ -516,7 +526,8 @@ class TaskArchiverTest(unittest.TestCase):
         tables = []
         for x in create.requiredTables:
             tables.append(x[2:])
-
+ 
+        self.populateWorkflowWithCompleteStatus()
         testTaskArchiver = TaskArchiverPoller(config = config)
         testTaskArchiver.algorithm()
 
@@ -615,13 +626,14 @@ class TaskArchiverTest(unittest.TestCase):
         fwjrdb.loadView("FWJRDump", "fwjrsByWorkflowName",
                         options = {"startkey": [workload.name()],
                                    "endkey": [workload.name(), {}]})['rows']
-
+    
+        self.populateWorkflowWithCompleteStatus()
         testTaskArchiver = TaskArchiverPoller(config = config)
         testTaskArchiver.algorithm()
 
         dbname       = getattr(config.JobStateMachine, "couchDBName")
         workdatabase = couchdb.connectDatabase("%s/workloadsummary" % dbname)
-
+    
         workloadSummary = workdatabase.document(id = workload.name())
 
         self.assertEqual(workloadSummary['errors']['/TestWorkload/ReReco']['failureTime'], 500)
@@ -717,77 +729,6 @@ class TaskArchiverTest(unittest.TestCase):
 
         logging.info("TaskArchiver took %f seconds" % (stopTime - startTime))
 
-
-    def testTaskArchiverPollerAlertsSending_notifyWorkQueue(self):
-        """
-        Cause exception (alert-worthy situation) in
-        the TaskArchiverPoller notifyWorkQueue method.
-
-        """
-        return
-        myThread = threading.currentThread()
-        config = self.getConfig()
-        testTaskArchiver = TaskArchiverPoller(config = config)
-
-        # shall later be called directly from utils module
-        handler, self.alertsReceiver = \
-            utils.setUpReceiver(config.Alert.address, config.Alert.controlAddr)
-
-        # prepare input such input which will go until where it expectantly
-        # fails and shall send an alert
-        # this will currently fail in the TaskArchiverPoller killSubscriptions
-        # on trying to access .load() method which items of below don't have.
-        # should anything change in the TaskArchiverPoller without modifying this
-        # test accordingly, it may be failing ...
-        print "failures 'AttributeError: 'dict' object has no attribute 'load' expected ..."
-        subList = [{'id': 1}, {'id': 2}, {'id': 3}]
-        testTaskArchiver.notifyWorkQueue(subList)
-        # wait for the generated alert to arrive
-        while len(handler.queue) < len(subList):
-            time.sleep(0.3)
-            print "%s waiting for alert to arrive ..." % inspect.stack()[0][3]
-
-        self.alertsReceiver.shutdown()
-        self.alertsReceiver = None
-        # now check if the alert was properly sent (expect this many failures)
-        self.assertEqual(len(handler.queue), len(subList))
-        alert = handler.queue[0]
-        self.assertEqual(alert["Source"], "TaskArchiverPoller")
-
-
-    def testTaskArchiverPollerAlertsSending_killSubscriptions(self):
-        """
-        Cause exception (alert-worthy situation) in
-        the TaskArchiverPoller killSubscriptions method.
-        (only 1 situation out of two tested).
-
-        """
-        return
-        myThread = threading.currentThread()
-        config = self.getConfig()
-        testTaskArchiver = TaskArchiverPoller(config = config)
-
-        # shall later be called directly from utils module
-        handler, self.alertsReceiver = \
-            utils.setUpReceiver(config.Alert.address, config.Alert.controlAddr)
-
-        # will fail on calling .load() - regardless, the same except block
-        numAlerts = 3
-        doneList = [{'id': x} for x in range(numAlerts)]
-        # final re-raise is currently commented, so don't expect Exception here
-        testTaskArchiver.killSubscriptions(doneList)
-        # wait for the generated alert to arrive
-        while len(handler.queue) < numAlerts:
-            time.sleep(0.3)
-            print "%s waiting for alert to arrive ..." % inspect.stack()[0][3]
-
-        self.alertsReceiver.shutdown()
-        self.alertsReceiver = None
-        # now check if the alert was properly sent
-        self.assertEqual(len(handler.queue), numAlerts)
-        alert = handler.queue[0]
-        self.assertEqual(alert["Source"], "TaskArchiverPoller")
-        return
 
     def testDQMRecoPerformanceToDashBoard(self):
 

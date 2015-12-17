@@ -7,7 +7,6 @@ Create a CMSSW PSet suitable for running a WMAgent job.
 
 import os
 import random
-import types
 import socket
 import traceback
 import pickle
@@ -15,8 +14,7 @@ import pickle
 from WMCore.WMRuntime.ScriptInterface import ScriptInterface
 from WMCore.Storage.TrivialFileCatalog import TrivialFileCatalog
 from PSetTweaks.PSetTweak import PSetTweak
-import WMCore.WMSpec.WMStep as WMStep
-from PSetTweaks.WMTweak import makeTweak, applyTweak
+from PSetTweaks.WMTweak import applyTweak
 from PSetTweaks.WMTweak import makeOutputTweak, makeJobTweak, makeTaskTweak
 from WMCore.Storage.SiteLocalConfig import loadSiteLocalConfig
 from WMCore.Wrappers.JsonWrapper import JSONDecoder
@@ -191,7 +189,7 @@ class SetupCMSSWPset(ScriptInterface):
             except Exception as ex:
                 msg = "Failed to create a merge process."
                 print msg
-                return None
+                raise ex
         elif funcName == "repack":
             try:
                 from Configuration.DataProcessing.Repack import repackProcess
@@ -199,19 +197,24 @@ class SetupCMSSWPset(ScriptInterface):
             except Exception as ex:
                 msg = "Failed to create a repack process."
                 print msg
-                return None
+                raise ex
         else:
             try:
                 from Configuration.DataProcessing.GetScenario import getScenario
                 scenarioInst = getScenario(scenario)
-                self.process = getattr(scenarioInst, funcName)(**funcArgs)
             except Exception as ex:
                 msg = "Failed to retrieve the Scenario named "
                 msg += str(scenario)
                 msg += "\nWith Error:"
                 msg += str(ex)
                 print msg
-                return None
+                raise ex
+            try:
+                self.process = getattr(scenarioInst, funcName)(**funcArgs)
+            except Exception as ex:
+                msg = "Failed to load process from Scenario %s (%s)." % (scenario, scenarioInst)
+                print msg
+                raise ex
 
         return
 
@@ -232,7 +235,7 @@ class SetupCMSSWPset(ScriptInterface):
             msg = "Unable to import process from %s:\n" % psetModule
             msg += str(ex)
             print msg
-            return 1
+            raise ex
 
         return
 
@@ -549,6 +552,20 @@ class SetupCMSSWPset(ScriptInterface):
 
         return
 
+    def handleMergeSettings(self):
+        """
+        _handleMergeSettings_
+
+        Merge jobs should only use one core in CMSSW
+        """
+        try:
+            if int(self.step.data.application.multicore.numberOfCores) > 1:
+                self.step.data.application.multicore.numberOfCores = 1
+        except AttributeError:
+            pass
+
+        return
+
     def handleSpecialCERNMergeSettings(self, funcName):
         """
         _handleSpecialCERNMergeSettings_
@@ -588,7 +605,7 @@ class SetupCMSSWPset(ScriptInterface):
         if scenario != None and scenario != "":
             funcName = getattr(self.step.data.application.configuration, "function", None)
             if getattr(self.step.data.application.configuration, "pickledarguments", None) != None:
-                funcArgs = pickle.loads(getattr(self.step.data.application.configuration, "pickledarguments", None))
+                funcArgs = pickle.loads(self.step.data.application.configuration.pickledarguments)
             else:
                 funcArgs = {}
             try:
@@ -600,6 +617,8 @@ class SetupCMSSWPset(ScriptInterface):
 
             if funcName == "repack":
                 self.handleRepackSettings()
+            elif funcName == "merge":
+                self.handleMergeSettings()
 
             if socket.getfqdn().endswith("cern.ch"):
                 self.handleSpecialCERNMergeSettings(funcName)
@@ -612,6 +631,11 @@ class SetupCMSSWPset(ScriptInterface):
                 print traceback.format_exc()
                 raise ex
 
+        # Check process.source exists
+        if getattr(self.process, "source", None) == None:
+            msg = "Error in CMSSW PSet: process is missing attribute 'source' or process.source is defined with None value."
+            raise RuntimeError(msg)
+
         self.fixupProcess()
 
         try:
@@ -621,11 +645,10 @@ class SetupCMSSWPset(ScriptInterface):
                 if options == None:
                     self.process.options = cms.untracked.PSet()
                     options = getattr(self.process, "options")
-
                 options.numberOfThreads = cms.untracked.uint32(numCores)
                 options.numberOfStreams = cms.untracked.uint32(0)        # For now, same as numCores
         except AttributeError:
-                print "No value for numberOfCores. Not setting"
+            print "No value for numberOfCores. Not setting"
 
         psetTweak = getattr(self.step.data.application.command, "psetTweak", None)
         if psetTweak != None:
