@@ -17,6 +17,7 @@ from WMCore.WorkQueue.WorkQueueExceptions import *
 from WMCore_t.WorkQueue_t.WorkQueue_t import getFirstTask
 from WMQuality.Emulators.DataBlockGenerator import Globals
 from WMQuality.Emulators.WMSpecGenerator.WMSpecGenerator import createConfig
+from WMQuality.Emulators.EmulatedUnitTest import EmulatedUnitTest
 
 rerecoArgs = ReRecoWorkloadFactory.getTestArguments()
 rerecoArgs["SplittingAlgo"] = "LumiBased"
@@ -27,12 +28,12 @@ parentProcArgs["SplittingAlgo"] = "LumiBased"
 parentProcArgs["LumisPerJob"] = 8
 
 
-class BlockTestCase(unittest.TestCase):
+class BlockTestCase(EmulatedUnitTest):
     splitArgs = dict(SliceType='NumberOfFiles', SliceSize=10)
 
     def setUp(self):
         self.fakeDBS = False
-        EmulatorHelper.setEmulators(phedex=False, dbs=self.fakeDBS,
+        EmulatorHelper.setEmulators(phedex=False, dbs=False,
                                     siteDB=True, requestMgr=False)
         Globals.GlobalParams.resetParams()
 
@@ -276,7 +277,7 @@ class BlockTestCase(unittest.TestCase):
                         self.assertEqual(runLumis[run], None)  # This is what it is with DBS3 unless we calculate it
             self.assertEqual(2, int(wq_jobs))
 
-    def testInvalidSpecs(self):
+    def atestInvalidSpecs(self):
         """Specs with no work"""
         # no dataset
         rerecoArgs["ConfigCacheID"] = createConfig(rerecoArgs["CouchDBName"])
