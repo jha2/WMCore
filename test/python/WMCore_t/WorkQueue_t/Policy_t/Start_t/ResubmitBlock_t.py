@@ -251,12 +251,11 @@ class ResubmitBlockTest(unittest.TestCase):
                                                 'server' : self.couchUrl})
 
 
-        #acdcWorkload = self.getMergeACDCSpec('ParentlessMergeBySize', {})
-        acdcWorkload = self.getMergeACDCSpec('ParentlessMergeBySize', {'min_merge_size':200})
+        acdcWorkload = self.getMergeACDCSpec('ParentlessMergeBySize', {})
         acdcWorkload.data.request.priority = 10000
         for task in acdcWorkload.taskIterator():
             policy = ResubmitBlock()
-            pdb.set_trace()
+            #pdb.set_trace()
             units, _ = policy(acdcWorkload, task)
             self.assertEqual(len(units), 1)
             for unit in units:
