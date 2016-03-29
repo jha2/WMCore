@@ -8,7 +8,7 @@ Created on Feb 19, 2013
 
 @author: dballest
 """
-
+import pdb
 import os
 import unittest
 
@@ -48,8 +48,10 @@ class ResubmitBlockTest(unittest.TestCase):
         self.couchUrl = os.environ["COUCHURL"]
         self.acdcDBName = 'resubmitblock_t'
         self.validLocations = ['srm-cms.gridpp.rl.ac.uk', 'cmssrm.fnal.gov', 'srm.unl.edu']
-        self.validLocationsCMSNames = ['T2_US_Nebraska', 'T1_US_FNAL', 'T1_UK_RAL']
-        self.siteWhitelist = ['T2_XX_SiteA']
+        #self.validLocationsCMSNames = ['T2_US_Nebraska', 'T1_US_FNAL', 'T1_UK_RAL']
+        self.validLocationsCMSNames = ['T1_US_FNAL']
+        #self.siteWhitelist = ['T2_XX_SiteA']
+        self.siteWhitelist = ['T1_US_FNAL']
         self.workflowName = 'dballest_ReReco_workflow'
         couchServer = CouchServer(dburl = self.couchUrl)
         self.acdcDB = couchServer.connectDatabase(self.acdcDBName, create = False)
@@ -149,7 +151,7 @@ class ResubmitBlockTest(unittest.TestCase):
 
         return
 
-    def testEmptyACDC(self):
+    def DtestEmptyACDC(self):
         """
         _testEmptyACDC_
 
@@ -171,7 +173,7 @@ class ResubmitBlockTest(unittest.TestCase):
 
         return
 
-    def testUnsupportedACDC(self):
+    def DtestUnsupportedACDC(self):
         """
         _testUnsupportedACDC_
 
@@ -185,7 +187,7 @@ class ResubmitBlockTest(unittest.TestCase):
 
         return
 
-    def testFixedSizeChunksSplit(self):
+    def DtestFixedSizeChunksSplit(self):
         """
         _testFixedSizeChunksSplit_
 
@@ -202,7 +204,7 @@ class ResubmitBlockTest(unittest.TestCase):
             for unit in units:
                 self.assertEqual(len(unit['Inputs']), 1)
                 inputBlock = unit['Inputs'].keys()[0]
-                self.assertEqual(sorted(unit['Inputs'][inputBlock]), sorted(self.validLocationsCMSNames))
+                self.assertItemsEqual(sorted(unit['Inputs'][inputBlock]), sorted(self.validLocationsCMSNames))
                 self.assertEqual(10000, unit['Priority'])
                 self.assertEqual(50, unit['Jobs'])
                 self.assertEqual(acdcWorkload, unit['WMSpec'])
@@ -226,7 +228,7 @@ class ResubmitBlockTest(unittest.TestCase):
         independent.
         """
         self.stuffACDCDatabase()
-        acdcWorkload = self.getProcessingACDCSpec('LumiBased', {'lumis_per_job' : 10})
+        acdcWorkload = self.getProcessingACDCSpec('LumiBased', {'lumis_per_job' : 8})
         acdcWorkload.data.request.priority = 10000
         for task in acdcWorkload.taskIterator():
             policy = ResubmitBlock()
@@ -237,7 +239,7 @@ class ResubmitBlockTest(unittest.TestCase):
                 inputBlock = unit['Inputs'].keys()[0]
                 self.assertEqual(sorted(unit['Inputs'][inputBlock]), sorted(self.validLocationsCMSNames))
                 self.assertEqual(10000, unit['Priority'])
-                self.assertEqual(100, unit['Jobs'])
+                self.assertEqual(125, unit['Jobs'])
                 self.assertEqual(acdcWorkload, unit['WMSpec'])
                 self.assertEqual(task, unit['Task'])
                 self.assertEqual(1000, unit['NumberOfLumis'])
@@ -248,10 +250,13 @@ class ResubmitBlockTest(unittest.TestCase):
                                                 'collection' : self.workflowName,
                                                 'server' : self.couchUrl})
 
-        acdcWorkload = self.getMergeACDCSpec('ParentlessMergeBySize', {})
+
+        #acdcWorkload = self.getMergeACDCSpec('ParentlessMergeBySize', {})
+        acdcWorkload = self.getMergeACDCSpec('ParentlessMergeBySize', {'min_merge_size':200})
         acdcWorkload.data.request.priority = 10000
         for task in acdcWorkload.taskIterator():
             policy = ResubmitBlock()
+            pdb.set_trace()
             units, _ = policy(acdcWorkload, task)
             self.assertEqual(len(units), 1)
             for unit in units:
@@ -269,10 +274,9 @@ class ResubmitBlockTest(unittest.TestCase):
                                                 'fileset' : '/%s/DataProcessing/DataProcessingMergeRECOoutput' % self.workflowName,
                                                 'collection' : self.workflowName,
                                                 'server' : self.couchUrl})
-
         return
 
-    def testLocalQueueACDCSplit(self):
+    def DtestLocalQueueACDCSplit(self):
         """
         _testLocalQueueACDCSplit_
 
@@ -322,7 +326,7 @@ class ResubmitBlockTest(unittest.TestCase):
                                                 'server' : self.couchUrl})
         return
 
-    def testSiteWhitelistsLocation(self):
+    def DtestSiteWhitelistsLocation(self):
         """
         _testSiteWhitelistsLocation_
 
@@ -340,6 +344,7 @@ class ResubmitBlockTest(unittest.TestCase):
             for unit in units:
                 self.assertEqual(len(unit['Inputs']), 1)
                 inputBlock = unit['Inputs'].keys()[0]
+                pdb.set_trace()
                 self.assertEqual(sorted(unit['Inputs'][inputBlock]), sorted(self.siteWhitelist))
                 self.assertEqual(10000, unit['Priority'])
                 self.assertEqual(50, unit['Jobs'])
