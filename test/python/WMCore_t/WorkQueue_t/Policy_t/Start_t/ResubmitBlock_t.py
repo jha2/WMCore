@@ -22,11 +22,15 @@ from WMCore.Services.EmulatorSwitch import EmulatorHelper
 from WMCore.WMSpec.StdSpecs.ReReco import ReRecoWorkloadFactory
 from WMCore.WorkQueue.Policy.Start.ResubmitBlock import ResubmitBlock
 from WMCore.WorkQueue.WorkQueueExceptions import WorkQueueNoWorkError, WorkQueueWMSpecError
+from WMQuality.Emulators.EmulatedUnitTest import EmulatedUnitTest
 
 from WMQuality.TestInitCouchApp import TestInitCouchApp
 from WMQuality.Emulators.WMSpecGenerator.WMSpecGenerator import createConfig
 
-class ResubmitBlockTest(unittest.TestCase):
+class ResubmitBlockTest(EmulatedUnitTest):
+
+    def __init__(self, methodName='runTest'):
+        super(ResubmitBlockTest, self).__init__(methodName=methodName, mockDBS=True, mockPhEDEx=True)
 
     def setUp(self):
         """
@@ -34,6 +38,7 @@ class ResubmitBlockTest(unittest.TestCase):
 
         Setup couchdb and the test environment
         """
+        super(ResubmitBlockTest, self).setUp()
 
         self.group = 'unknown'
         self.user = 'unknown'
@@ -42,7 +47,7 @@ class ResubmitBlockTest(unittest.TestCase):
         self.testInit = TestInitCouchApp(__file__)
         self.testInit.setLogging()
         self.testInit.setupCouch("resubmitblock_t", "ACDC", "GroupUser")
-        EmulatorHelper.setEmulators(siteDB = True)
+        EmulatorHelper.setEmulators(phedex=False, dbs=False, siteDB=True, requestMgr=False)
 
         # Define test environment
         self.couchUrl = os.environ["COUCHURL"]
@@ -64,6 +69,8 @@ class ResubmitBlockTest(unittest.TestCase):
 
         Clean couchdb and test environment
         """
+        super(ResubmitBlockTest, self).tearDown()
+
         self.testInit.tearDownCouch()
         EmulatorHelper.resetEmulators()
         return
@@ -149,7 +156,7 @@ class ResubmitBlockTest(unittest.TestCase):
 
         return
 
-    def testEmptyACDC(self):
+    def NtestEmptyACDC(self):
         """
         _testEmptyACDC_
 
@@ -171,7 +178,7 @@ class ResubmitBlockTest(unittest.TestCase):
 
         return
 
-    def testUnsupportedACDC(self):
+    def NtestUnsupportedACDC(self):
         """
         _testUnsupportedACDC_
 
@@ -185,7 +192,7 @@ class ResubmitBlockTest(unittest.TestCase):
 
         return
 
-    def testFixedSizeChunksSplit(self):
+    def NtestFixedSizeChunksSplit(self):
         """
         _testFixedSizeChunksSplit_
 
@@ -216,7 +223,7 @@ class ResubmitBlockTest(unittest.TestCase):
                                                 'server' : self.couchUrl})
         return
 
-    def testSingleChunksSplit(self):
+    def NtestSingleChunksSplit(self):
         """
         _testSingleChunksSplit_
 
@@ -272,7 +279,7 @@ class ResubmitBlockTest(unittest.TestCase):
 
         return
 
-    def testLocalQueueACDCSplit(self):
+    def NtestLocalQueueACDCSplit(self):
         """
         _testLocalQueueACDCSplit_
 
