@@ -30,6 +30,9 @@ from WMQuality.Emulators.EmulatedUnitTest import EmulatedUnitTest
 
 class ResubmitBlockTest(EmulatedUnitTest):
 
+    def __init__(self, methodName='runTest'):
+        super(ResubmitBlockTest, self).__init__(methodName=methodName, mockDBS=True, mockPhEDEx=True)
+
     def setUp(self):
         """
         _setUp_
@@ -37,7 +40,7 @@ class ResubmitBlockTest(EmulatedUnitTest):
         Setup couchdb and the test environment
         """
         super(ResubmitBlockTest, self).setUp()
-        EmulatorHelper.setEmulators(phedex=True, dbs=False, siteDB=True, requestMgr=False)
+        EmulatorHelper.setEmulators(phedex=False, dbs=False, siteDB=True, requestMgr=False)
 
         self.group = 'unknown'
         self.user = 'unknown'
@@ -78,7 +81,7 @@ class ResubmitBlockTest(EmulatedUnitTest):
         return
 
     def getProcessingACDCSpec(self, splittingAlgo = 'LumiBased', splittingArgs = {'lumis_per_job' : 8},
-                              setLocationFlag = False):
+                              setLocationFlag = True):
         """
         _getProcessingACDCSpec_
 
@@ -342,6 +345,7 @@ class ResubmitBlockTest(EmulatedUnitTest):
         acdcWorkload = self.getProcessingACDCSpec('FileBased', {'files_per_job' : 5},
                                                   setLocationFlag = True)
         acdcWorkload.data.request.priority = 10000
+        pdb.set_trace()
         for task in acdcWorkload.taskIterator():
             policy = ResubmitBlock()
             units, _ = policy(acdcWorkload, task)
