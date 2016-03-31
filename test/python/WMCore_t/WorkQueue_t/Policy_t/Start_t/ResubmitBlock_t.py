@@ -9,6 +9,7 @@ Created on Feb 19, 2013
 @author: dballest
 """
 
+import pdb
 import os
 import unittest
 
@@ -25,8 +26,9 @@ from WMCore.WorkQueue.WorkQueueExceptions import WorkQueueNoWorkError, WorkQueue
 
 from WMQuality.TestInitCouchApp import TestInitCouchApp
 from WMQuality.Emulators.WMSpecGenerator.WMSpecGenerator import createConfig
+from WMQuality.Emulators.EmulatedUnitTest import EmulatedUnitTest
 
-class ResubmitBlockTest(unittest.TestCase):
+class ResubmitBlockTest(EmulatedUnitTest):
 
     def setUp(self):
         """
@@ -34,6 +36,8 @@ class ResubmitBlockTest(unittest.TestCase):
 
         Setup couchdb and the test environment
         """
+        super(ResubmitBlockTest, self).setUp()
+        EmulatorHelper.setEmulators(phedex=True, dbs=False, siteDB=True, requestMgr=False)
 
         self.group = 'unknown'
         self.user = 'unknown'
@@ -42,13 +46,17 @@ class ResubmitBlockTest(unittest.TestCase):
         self.testInit = TestInitCouchApp(__file__)
         self.testInit.setLogging()
         self.testInit.setupCouch("resubmitblock_t", "ACDC", "GroupUser")
-        EmulatorHelper.setEmulators(siteDB = True)
+        #Without mock
+        #EmulatorHelper.setEmulators(siteDB = True)
 
         # Define test environment
         self.couchUrl = os.environ["COUCHURL"]
         self.acdcDBName = 'resubmitblock_t'
         self.validLocations = ['srm-cms.gridpp.rl.ac.uk', 'cmssrm.fnal.gov', 'srm.unl.edu']
-        self.validLocationsCMSNames = ['T2_US_Nebraska', 'T1_US_FNAL', 'T1_UK_RAL']
+        #Before Mock
+        #self.validLocationsCMSNames = ['T2_US_Nebraska', 'T1_US_FNAL', 'T1_UK_RAL']
+
+        self.validLocationsCMSNames = ['T1_US_FNAL']
         self.siteWhitelist = ['T2_XX_SiteA']
         self.workflowName = 'dballest_ReReco_workflow'
         couchServer = CouchServer(dburl = self.couchUrl)
@@ -66,6 +74,7 @@ class ResubmitBlockTest(unittest.TestCase):
         """
         self.testInit.tearDownCouch()
         EmulatorHelper.resetEmulators()
+        super(ResubmitBlockTest, self).tearDown()
         return
 
     def getProcessingACDCSpec(self, splittingAlgo = 'LumiBased', splittingArgs = {'lumis_per_job' : 8},
@@ -185,7 +194,7 @@ class ResubmitBlockTest(unittest.TestCase):
 
         return
 
-    def testFixedSizeChunksSplit(self):
+    def DtestFixedSizeChunksSplit(self):
         """
         _testFixedSizeChunksSplit_
 
@@ -216,7 +225,7 @@ class ResubmitBlockTest(unittest.TestCase):
                                                 'server' : self.couchUrl})
         return
 
-    def testSingleChunksSplit(self):
+    def NtestSingleChunksSplit(self):
         """
         _testSingleChunksSplit_
 
@@ -226,7 +235,7 @@ class ResubmitBlockTest(unittest.TestCase):
         independent.
         """
         self.stuffACDCDatabase()
-        acdcWorkload = self.getProcessingACDCSpec('LumiBased', {'lumis_per_job' : 10})
+        acdcWorkload = self.getProcessingACDCSpec('LumiBased', {'lumis_per_job' : 100})
         acdcWorkload.data.request.priority = 10000
         for task in acdcWorkload.taskIterator():
             policy = ResubmitBlock()
@@ -237,7 +246,7 @@ class ResubmitBlockTest(unittest.TestCase):
                 inputBlock = unit['Inputs'].keys()[0]
                 self.assertEqual(sorted(unit['Inputs'][inputBlock]), sorted(self.validLocationsCMSNames))
                 self.assertEqual(10000, unit['Priority'])
-                self.assertEqual(100, unit['Jobs'])
+                self.assertEqual(10, unit['Jobs'])
                 self.assertEqual(acdcWorkload, unit['WMSpec'])
                 self.assertEqual(task, unit['Task'])
                 self.assertEqual(1000, unit['NumberOfLumis'])
