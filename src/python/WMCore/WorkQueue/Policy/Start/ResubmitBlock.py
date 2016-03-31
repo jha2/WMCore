@@ -19,6 +19,9 @@ ACDC unsupported:
 """
 __all__ = []
 
+import pdb
+
+
 from WMCore.WorkQueue.Policy.Start.StartPolicyInterface import StartPolicyInterface
 from math import ceil
 from WMCore.Services.SiteDB.SiteDB import SiteDBJSON as SiteDB
@@ -79,6 +82,8 @@ class ResubmitBlock(StartPolicyInterface):
     def validBlocks(self, task):
         """Return blocks that pass the input data restriction according
            to the splitting algorithm"""
+
+        pdb.set_trace()
         validBlocks = []
 
         acdcInfo = task.getInputACDC()
@@ -91,7 +96,7 @@ class ResubmitBlock(StartPolicyInterface):
             # if self.data is not passed, assume the the data is input dataset
             # from the spec
             acdcBlockSplit = False
-
+        pdb.set_trace()
         if acdcBlockSplit:
             dbsBlock = {}
             dbsBlock['Name'] = self.data.keys()[0]
@@ -111,6 +116,7 @@ class ResubmitBlock(StartPolicyInterface):
                 # TODO remove this line when all DBS origin_site_name is converted to PNN
                 block["locations"] = self.siteDB.checkAndConvertSENameToPNN(block["locations"])
                 # upto this
+                pdb.set_trace()
                 dbsBlock["Sites"] = self.siteDB.PNNstoPSNs(block["locations"])
             validBlocks.append(dbsBlock)
         else:
