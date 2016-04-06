@@ -4,6 +4,8 @@ _SiteDBClient_
 
 Emulating SiteDB
 """
+
+import pdb
 import re
 import WMCore.Services.SiteDB.SiteDB as RealSiteDB
 #TODO remove this when all DBS origin_site_name is converted to PNN
@@ -27,7 +29,9 @@ class SiteDBJSON(object):
                        {u'site_name': u'FNAL', u'type': u'phedex', u'alias': u'T1_US_FNAL_Buffer'},
                        {u'site_name': u'FNAL', u'type': u'phedex', u'alias': u'T1_US_FNAL_MSS'},
                        {u'site_name': u'RAL', u'type': u'cms', u'alias': u'T1_UK_RAL'},
+                       {u'site_name': u'RAL', u'type': u'phedex', u'alias': u'T1_UK_RAL_Disk'},
                        {u'site_name': u'Nebraska', u'type': u'cms', u'alias': u'T2_US_Nebraska'},
+                       {u'site_name': u'Nebraska', u'type': u'phedex', u'alias': u'T2_US_Nebraska'},
                        {u'site_name': u'T2_XX_SiteA', u'type': u'cms', u'alias': u'T2_XX_SiteA'},
                        {u'site_name': u'T2_XX_SiteB', u'type': u'cms', u'alias': u'T2_XX_SiteB'},
                        {u'site_name': u'T2_XX_SiteC', u'type': u'cms', u'alias': u'T2_XX_SiteC'},
@@ -238,7 +242,9 @@ class SiteDBJSON(object):
         siteNames = []
         for resource in siteresources:
             siteNames.extend(self._sitenames(sitename=resource['site_name']))
+        #pdb.set_trace()
         pnns = filter(lambda x: x['type']=='phedex', siteNames)
+        #pnns = filter(lambda x: x['type']=='cms', siteNames)
         return [x['alias'] for x in pnns]
 
     def cmsNametoPhEDExNode(self, cmsName):
@@ -311,6 +317,7 @@ class SiteDBJSON(object):
         if it is convert to PNN
         if not just return argument
         """
+        #pdb.set_trace()
         if isinstance(seNameOrPNN, str):
             seNameOrPNN = [seNameOrPNN]
         
@@ -320,4 +327,5 @@ class SiteDBJSON(object):
                 newList.extend(self.seToPNNs(se))
             else:
                 newList.extend(se)
+        pdb.set_trace()
         return newList

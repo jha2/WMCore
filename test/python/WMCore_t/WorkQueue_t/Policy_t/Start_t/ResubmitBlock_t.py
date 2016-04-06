@@ -279,7 +279,7 @@ class ResubmitBlockTest(EmulatedUnitTest):
 
         return
 
-    def NtestLocalQueueACDCSplit(self):
+    def testLocalQueueACDCSplit(self):
         """
         _testLocalQueueACDCSplit_
 
@@ -329,7 +329,7 @@ class ResubmitBlockTest(EmulatedUnitTest):
                                                 'server' : self.couchUrl})
         return
 
-    def testSiteWhitelistsLocation(self):
+    def NtestSiteWhitelistsLocation(self):
         """
         _testSiteWhitelistsLocation_
 
