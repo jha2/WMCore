@@ -257,7 +257,7 @@ class SiteDBJSON(object):
         try:
             sitename = filter(lambda x: x['type'] == 'cms' and x['alias'] == cmsName, sitenames)[0]['site_name']
         except IndexError:
-            return None
+            return cmsName
         phedexnames = filter(lambda x: x['type'] == 'phedex' and x['site_name'] == sitename, sitenames)
         phedexnames = map(lambda x: x['alias'], phedexnames)
         return phedexnames
