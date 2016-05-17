@@ -17,7 +17,7 @@ class SiteDBTest(EmulatedUnitTestCase):
     """
 
     def  __init__(self, methodName='runTest'):
-        super(SiteDBTest, self).__init__(methodName=methodName, mockDBS=True, mockPhEDEx=True)
+        super(SiteDBTest, self).__init__(methodName=methodName, mockDBS=True, mockPhEDEx=True, mockSiteDB=True)
 
     def setUp(self):
         """
@@ -31,6 +31,7 @@ class SiteDBTest(EmulatedUnitTestCase):
         """
         _tearDown_
         """
+        super(SiteDBTest, self).tearDown()
         EmulatorHelper.resetEmulators()
         return
 

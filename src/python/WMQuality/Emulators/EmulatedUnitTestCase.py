@@ -11,6 +11,7 @@ import mock
 
 from WMQuality.Emulators.DBSClient.MockDbsApi import MockDbsApi
 from WMQuality.Emulators.PhEDExClient.MockPhEDExApi import MockPhEDExApi
+from WMQuality.Emulators.SiteDBClient.MockSiteDBApi import MockSiteDBApi
 
 
 class EmulatedUnitTestCase(unittest.TestCase):
@@ -21,9 +22,10 @@ class EmulatedUnitTestCase(unittest.TestCase):
     FIXME: For now only DBS is mocked
     """
 
-    def __init__(self, methodName='runTest', mockDBS=True, mockPhEDEx=False):  # FIXME: Default to False for both?
+    def __init__(self, methodName='runTest', mockDBS=True, mockPhEDEx=False, mockSiteDB=False):  # FIXME: Default to False for both?
         self.mockDBS = mockDBS
         self.mockPhEDEx = mockPhEDEx
+        self.mockSiteDB = mockSiteDB
         super(EmulatedUnitTestCase, self).__init__(methodName)
 
     def setUp(self):
@@ -45,5 +47,10 @@ class EmulatedUnitTestCase(unittest.TestCase):
             self.phedexPatcher2.start()
             self.addCleanup(self.phedexPatcher.stop)
             self.addCleanup(self.phedexPatcher2.stop)
+
+        if self.mockSiteDB:
+            self.siteDBPatcher = mock.patch('WMCore.Services.SiteDB.SiteDB.SiteDBJSON', new=MockSiteDBApi)
+            self.inUseSiteDBApi = self.siteDBPatcher.start()
+            self.addCleanup(self.siteDBPatcher.stop)
 
         return
