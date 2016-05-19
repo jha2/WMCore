@@ -65,7 +65,8 @@ class MakeSiteDBMockFiles(Service):
             raise SyntaxError("Problem parsing data. Cachefile cleared. Retrying may work")
 
 if __name__ =='__main__':
-    calls = [{'callname': 'people', 'filename': 'people.json', 'clearCache': False, 'verb': 'GET', 'data':{}},
+    calls = [
+           # {'callname': 'people', 'filename': 'people.json', 'clearCache': False, 'verb': 'GET', 'data':{}},
             {'callname': 'site-names', 'filename': 'site-names.json', 'clearCache': False, 'verb': 'GET', 'data':{}},
             {'callname': 'site-resources', 'filename': 'site-resources.json', 'clearCache': False, 'verb': 'GET', 'data':{}},
             {'callname': 'data-processing', 'filename': 'data-processing.json', 'clearCache': False, 'verb': 'GET', 'data':{}}
