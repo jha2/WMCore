@@ -35,10 +35,10 @@ class EmulatorHelper(object):
                 from WMQuality.Emulators.DBSClient.DBSReader \
                     import DBSReader as DBSEmulator
             return DBSEmulator
-
+        
         if clsName == 'SiteDBJSON':
-            from WMQuality.Emulators.SiteDBClient.SiteDB \
-                import SiteDBJSON as SiteDBEmulator
+            from WMQuality.Emulators.SiteDBClient.MockSiteDB \
+                import MockSiteDB as SiteDBEmulator
             return SiteDBEmulator
 
         if clsName == 'RequestManager':

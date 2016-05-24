@@ -23,7 +23,8 @@ class SiteDBTest(EmulatedUnitTestCase):
         """
         Setup for unit tests
         """
-        EmulatorHelper.setEmulators(phedex=False, dbs=False, siteDB=True, requestMgr=False)
+        super(SiteDBTest, self).setUp()
+        EmulatorHelper.setEmulators(phedex=False, dbs=False, siteDB=True, requestMgr=True)
         self.mySiteDB = SiteDBJSON()
 
 
@@ -41,6 +42,7 @@ class SiteDBTest(EmulatedUnitTestCase):
         Tests CmsNametoSE
         """
         target = ['T1_US_FNAL_MSS','T1_US_FNAL_Buffer', 'T1_US_FNAL_Disk']
+        pdb.set_trace()
         results = self.mySiteDB.cmsNametoPhEDExNode("T1_US_FNAL")
         self.assertTrue(sorted(results) == sorted(target))
         
